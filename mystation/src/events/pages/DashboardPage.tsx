@@ -1,15 +1,34 @@
 import { useEffect, useState } from "react";
-import { useUser } from "../../auth/contexts/UserProvider";
 import { useNavigate } from "react-router-dom";
+import { useUser } from "../../auth/contexts/UserContext";
 
-const DashboardPage = () => {
+interface SpotifyProfile {
+    display_name?: string;
+    email?: string;
+    images?: Array<{ url: string }>;
+}
+
+interface SpotifyTrack {
+    name: string;
+    artists: Array<{ name: string }>;
+}
+
+interface RecentTrackItem {
+    track: SpotifyTrack;
+}
+
+interface Artist {
+    name: string;
+}
+
+export const DashboardPage: React.FC = () => {
     const { userState, logout } = useUser();
     const navigate = useNavigate();
 
-    const [spotifyProfile, setSpotifyProfile] = useState(null);
-    const [recentTracks, setRecentTracks] = useState([]);
-    const [topArtists, setTopArtists] = useState([]);
-    const [topTracks, setTopTracks] = useState([]);
+    const [spotifyProfile, setSpotifyProfile] = useState<SpotifyProfile | null>(null);
+    const [recentTracks, setRecentTracks] = useState<RecentTrackItem[]>([]);
+    const [topArtists, setTopArtists] = useState<Artist[]>([]);
+    const [topTracks, setTopTracks] = useState<SpotifyTrack[]>([]);
 
     const accessToken = localStorage.getItem("spotify_access_token");
 
@@ -161,6 +180,6 @@ const styles = {
         marginTop: "2rem",
         textAlign: "left",
     },
-};
+} as const;
 
-export default DashboardPage;
+// Eliminamos la exportación por defecto para mantener consistencia

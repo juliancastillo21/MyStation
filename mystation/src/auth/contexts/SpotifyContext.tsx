@@ -7,6 +7,7 @@ interface SpotifyContextType {
     setTokens: (access: string, refresh: string) => void;
     accessToken: string | null;
     refreshToken: string | null;
+    isTokenValid: boolean;
 }
 
 const SpotifyContext = createContext<SpotifyContextType | undefined>(undefined);
@@ -15,16 +16,36 @@ export const SpotifyProvider = ({ children }: { children: ReactNode }) => {
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const [refreshToken, setRefreshToken] = useState<string | null>(null);
     const [token, setToken] = useState<string | null>(null);
+    const [isTokenValid, setIsTokenValid] = useState<boolean>(false);
 
-    const renovarToken = async () => {
+    const refreshAccessToken = async () => {
         if (refreshToken) {
-            const nuevoToken = await refreshSpotifyToken(refreshToken);
-            if (nuevoToken) {
-                setAccessToken(nuevoToken);
-                localStorage.setItem("spotify_access_token", nuevoToken);
+            try {
+                const newToken = await refreshSpotifyToken(refreshToken);
+                if (newToken) {
+                    setAccessToken(newToken);
+                    setIsTokenValid(true);
+                    localStorage.setItem("spotify_access_token", newToken);
+                    return true;
+                }
+            } catch (error) {
+                console.error("Error refreshing token:", error);
+                setIsTokenValid(false);
             }
         }
+        return false;
     };
+
+    // Set up automatic token refresh (every 50 minutes)
+    useEffect(() => {
+        if (accessToken) {
+            const refreshInterval = setInterval(() => {
+                refreshAccessToken();
+            }, 50 * 60 * 1000); // 50 minutes
+
+            return () => clearInterval(refreshInterval);
+        }
+    }, [accessToken, refreshToken]);
 
     useEffect(() => {
         const storedAccessToken = localStorage.getItem("spotify_access_token");
@@ -32,21 +53,30 @@ export const SpotifyProvider = ({ children }: { children: ReactNode }) => {
 
         if (storedRefreshToken) {
             setRefreshToken(storedRefreshToken);
-            renovarToken();
+            refreshAccessToken();
         } else if (storedAccessToken) {
             setAccessToken(storedAccessToken);
+            setIsTokenValid(true);
         }
     }, []);
 
     const setTokens = (access: string, refresh: string) => {
         setAccessToken(access);
         setRefreshToken(refresh);
+        setIsTokenValid(true);
         localStorage.setItem("spotify_access_token", access);
         localStorage.setItem("spotify_refresh_token", refresh);
     };
 
     return (
-        <SpotifyContext.Provider value={{ token, setToken, setTokens, accessToken, refreshToken }}>
+        <SpotifyContext.Provider value={{ 
+            token, 
+            setToken, 
+            setTokens, 
+            accessToken, 
+            refreshToken,
+            isTokenValid 
+        }}>
             {children}
         </SpotifyContext.Provider>
     );
@@ -55,7 +85,7 @@ export const SpotifyProvider = ({ children }: { children: ReactNode }) => {
 export const useSpotify = () => {
     const context = useContext(SpotifyContext);
     if (!context) {
-        throw new Error("useSpotify debe usarse dentro de un SpotifyProvider");
+        throw new Error("useSpotify must be used within a SpotifyProvider");
     }
     return context;
 };
